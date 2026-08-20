@@ -1,0 +1,5 @@
+programme,programme_key,rows,null_percentage,formatting_percentage,typo_percentage,duplicate_percentage,phone_variation_percentage,name_variation_percentage,id_variation_percentage,geography_formatting_percentage,geography_genuine_percentage,geography_total_percentage
+Inuka Scholarship Program,SCH,1500,21.67,24.2,20.93,20.0,20.13,21.4,22.93,12.73,4.2,16.93
+Inuka Vocational Youth Empowerment Programme,VOC,1500,22.2,24.87,22.2,20.0,20.93,22.13,23.67,10.33,4.13,14.47
+Inuka Plus,PLUS,1500,23.13,23.67,21.33,20.0,20.8,20.8,23.8,10.73,5.07,15.8
+Inuka Tech Fellowship,TECH,1500,20.07,23.33,22.13,20.0,19.07,19.27,24.33,12.27,4.87,17.13
