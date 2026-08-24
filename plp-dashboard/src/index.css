@@ -1,0 +1,617 @@
+@import 'tailwindcss';
+
+/* Light Theme (Geckoboard/BMW Sharp) */
+:root, [data-theme="light"] {
+  --bg: #ffffff;
+  --bg2: #f4f5f6;      
+  --bg3: #ffffff;      
+  --bg4: #e5e5e5;      
+  
+  --primary: #e60073;           /* Vibrant Fuchsia/Magenta */
+  --secondary: #0cdbc8;         /* Teal (Secondary for Gradient) */
+  --primary-dim: rgba(230, 0, 115, 0.08);
+  --primary-foreground: #ffffff;
+
+  --teal: #0cdbc8;
+  --teal-dim: rgba(12, 219, 200, 0.12);
+  
+  --amber: #d97706;
+  --amber-dim: rgba(217, 119, 6, 0.10);
+  --red: #dc2626;
+  --red-dim: rgba(220, 38, 38, 0.10);
+  --green: #16a34a;
+  --green-dim: rgba(22, 163, 74, 0.10);
+  --violet: #7c3aed;
+  --violet-dim: rgba(124, 58, 237, 0.10);
+
+  /* Added: referenced throughout components (DuplicateResolution conflict fields,
+     Anomalies/AuditTrail/DataQuality/Beneficiary360/AICopilot severity + brand-gradient
+     accents) but never defined in the original token set. Kept visually distinct from
+     --red so "conflict/anomaly" (magenta) reads differently from generic "error" (red). */
+  --magenta: #db2777;
+  --magenta-dim: rgba(219, 39, 119, 0.10);
+
+  --text: #171717;      
+  --text-2: #525252;
+  --text-3: #a3a3a3;
+  --text-4: #d4d4d4;
+
+  --glass-bg: rgba(255, 255, 255, 0.85);
+  --glass-border: #e5e5e5;
+  --glass-highlight: #f4f4f5;
+
+  --border: #e5e5e5;
+  --border-strong: #d4d4d4;
+
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.05);
+  --shadow: 0 8px 24px rgba(0,0,0,0.08);
+  --shadow-lg: 0 16px 48px rgba(0,0,0,0.12);
+  --shadow-glow: 0 0 24px rgba(230, 0, 115, 0.15);
+
+  --sidebar-w: 240px;
+  --header-h: 64px;
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Dark Theme (React Flow Deep Navy) */
+[data-theme="dark"] {
+  --bg: #0d0d13;
+  --bg2: #121219;
+  --bg3: #1a1a24;
+  --bg4: #252531;
+  
+  --primary: #0cdbc8;           /* Teal (Primary for Dark Mode) */
+  --secondary: #e60073;         /* Magenta (Secondary for Dark Gradient) */
+  --primary-dim: rgba(12, 219, 200, 0.15);
+  --primary-foreground: #ffffff;
+
+  --magenta: #f472b6;
+  --magenta-dim: rgba(244, 114, 182, 0.15);
+  
+  --text: #ffffff;
+  --text-2: #a1a1aa;
+  --text-3: #52525b;
+  --text-4: #3f3f46;
+
+  --glass-bg: rgba(26, 26, 36, 0.85);
+  --glass-border: rgba(255, 255, 255, 0.12);
+  --glass-highlight: rgba(255, 255, 255, 0.05);
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.6);
+  --shadow: 0 8px 32px rgba(0,0,0,0.6);
+  --shadow-lg: 0 16px 64px rgba(0,0,0,0.7);
+  --shadow-glow: 0 0 24px rgba(230, 0, 115, 0.3);
+}
+
+:root { --font-scale: 1; --font-weight-base: 500; }
+body { font-size: calc(14px * var(--font-scale)); }
+.btn, input, select, textarea { font-weight: var(--font-weight-base); }
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  transition: background 0.4s ease, color 0.4s ease;
+}
+
+/* Text-weight setting: widened beyond body{font-weight}, which only ever
+   reached text with no inline weight at all (almost nothing in this app).
+   This overrides the common inline weights on ordinary body text — table
+   cells, card copy, list items — via !important (which beats non-!important
+   inline styles), while deliberately leaving headings, metric numbers,
+   badges, and section labels alone so the page's visual hierarchy doesn't
+   flatten out. This is why "Bold" is now visible: it changes real inline
+   400/500/600 weights on regular text throughout every page. */
+body :where(p, span, div):not(.badge):not(.section-label):not(.metric-value) {
+  font-weight: var(--font-weight-base) !important;
+}
+body h1, body h2, body h3 { font-weight: 800; }
+
+/* Font-size setting: nearly every text node in this app uses an inline
+   pixel fontSize (fontSize: 13, etc.), which never reads a CSS variable —
+   so scaling body{font-size} alone cannot work. `zoom` scales the entire
+   rendered page (layout + text) uniformly, regardless of unit, and
+   getBoundingClientRect() (used by OnboardingTour) reflects the zoomed
+   values, so tour positioning stays correct at any zoom level.
+   Supported in Chrome/Edge/Safari and Firefox 126+; on unsupported
+   browsers this rule is simply ignored (page renders at 100%, no breakage). */
+html { zoom: var(--font-scale, 1); }
+
+/* Font-weight setting: only applies to text that doesn't already set an
+   explicit inline fontWeight (headings, labels, and badges hardcode their
+   own weight and won't respond to this — a full fix would mean replacing
+   every inline fontWeight across every component with var(--font-weight-base),
+   which is a larger refactor than this pass). */
+body { font-weight: var(--font-weight-base); }
+
+/* Make horizontal-scroll containers visibly scrollable on desktop browsers
+   (Chrome/Edge) instead of relying on an invisible-until-hovered scrollbar. */
+.hscroll::-webkit-scrollbar, .table-scroll::-webkit-scrollbar { height: 6px; }
+.hscroll::-webkit-scrollbar-thumb, .table-scroll::-webkit-scrollbar-thumb {
+  background: var(--bg4); border-radius: 6px;
+}
+.hscroll, .table-scroll { scrollbar-width: thin; }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--bg4); border-radius: 8px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* Prevent flex/grid children from forcing overflow past their container —
+   the single most common cause of cards "getting out of the page" on resize. */
+.card, .grid-metrics > *, .grid-2col > *, .grid-hero > * { min-width: 0; }
+
+/* Utility: opt an element into horizontal scroll instead of wrapping/clipping
+   when its content is wider than the viewport allows. */
+.hscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: thin; }
+.hscroll > * { flex-shrink: 0; }
+
+
+/* Bubbles (Match Confidence Distribution) — glossy radial highlight +
+   spring pop-in, staggered per item via inline animationDelay in JSX. */
+@keyframes bubblePop {
+  0%   { transform: scale(0) translateY(6px); opacity: 0; }
+  60%  { transform: scale(1.18) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); opacity: 1; }
+}
+.bubble {
+  border-radius: 50%;
+  position: relative;
+  animation: bubblePop 0.5s var(--ease-spring) both;
+  box-shadow: inset -3px -3px 6px rgba(0,0,0,0.15), inset 2px 2px 4px rgba(255,255,255,0.5), 0 2px 6px rgba(0,0,0,0.12);
+  transition: transform 0.15s;
+}
+.bubble::after {
+  content: "";
+  position: absolute; top: 14%; left: 20%; width: 35%; height: 30%;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.65);
+  filter: blur(1px);
+}
+.bubble:hover { transform: scale(1.15); }
+
+/* Glossy pop-in for Quality Dimensions squares — same spring-pop family as
+   the bubbles above, plus a reflective highlight band using each square's
+   own assigned color (via its existing gradient background). */
+@keyframes blockPop {
+  0%   { transform: scale(0) rotate(-6deg); opacity: 0; }
+  60%  { transform: scale(1.1) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+.block-glossy { animation: blockPop 0.45s var(--ease-spring) both; position: relative; overflow: hidden; }
+.block-glossy::after {
+  content: "";
+  position: absolute; top: 0; left: 0; width: 100%; height: 45%;
+  background: linear-gradient(rgba(255,255,255,0.45), transparent);
+  pointer-events: none;
+}
+
+/* Recent Audit Events — drops in from above with a slight settle-bounce,
+   replacing the float-up entrance. */
+@keyframes dropIn {
+  0%   { transform: translateY(-24px); opacity: 0; }
+  60%  { transform: translateY(4px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+.timeline-card-drop { animation: dropIn 0.5s var(--ease-spring) both; }
+
+/* Resolution Funnel — a silver highlight traveling continuously along
+   every path in the funnel, layered on top of the existing colored flows. */
+@keyframes flowShine { to { stroke-dashoffset: -420; } }
+.flow-shine {
+  fill: none;
+  stroke: rgba(255,255,255,0.9);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 6 50;
+  animation: flowShine 2.2s linear infinite;
+  filter: drop-shadow(0 0 5px rgba(255,255,255,0.85));
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* Animations */
+@keyframes pageTransition { 0% { opacity: 0; transform: translateX(-20px); } 100% { opacity: 1; transform: translateX(0); } }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes live-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.8); } }
+@keyframes progress-fill { from { width: 0%; } to { width: var(--pct); } }
+@keyframes counter { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes anomaly-pulse { 0%, 100% { box-shadow: 0 0 0 0 transparent; } 50% { box-shadow: 0 0 0 3px var(--magenta-dim); } }
+@keyframes draw-line { from { stroke-dashoffset: 20; } to { stroke-dashoffset: 0; } }
+@keyframes merge-appear { from { opacity: 0; transform: translate(-50%, -50%) scale(0.6); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+@keyframes ripple { from { opacity: 0.6; transform: scale(1); } to { opacity: 0; transform: scale(1.15); } }
+
+/* Page Transitions */
+.page-transition { animation: pageTransition 0.5s cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Added: used across every page component (Overview, IdentityExplorer, Anomalies, etc.)
+   for the initial mount fade — was referenced but undefined in the original stylesheet. */
+.animate-in { animation: fadeIn 0.4s var(--ease-out) both; }
+
+/* Added: metric numbers on Overview cards (AnimCounter target) had no styling. */
+.metric-value {
+  font-size: 32px;
+  font-weight: 800;
+  line-height: 1;
+  animation: counter 0.5s var(--ease-out) both;
+}
+
+/* Added: status/type pills used everywhere (IdentityExplorer status, AuditTrail type,
+   Anomalies level, DataQuality severity, DuplicateResolution match status). */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 100px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* Added: notification dropdown + toast surfaces (App.tsx header, Overview merge toast). */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border-radius: var(--radius);
+}
+
+/* 3D Box Sidebar & Menus */
+.sidebar-3d {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  box-shadow: 8px 0 24px -12px rgba(0,0,0,0.1);
+  z-index: 10;
+}
+.menu-box {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,0.1);
+  overflow: hidden;
+}
+.menu-item { transition: all 0.2s ease; border-bottom: 1px solid var(--border); }
+.menu-item:last-child { border-bottom: none; }
+.menu-item:hover { background: var(--bg2); }
+.menu-item.active {
+  background: var(--primary-dim);
+  color: var(--primary);
+  border-left: 4px solid var(--primary);
+}
+
+/* Thick, Glassy, Gradient, Zoomable Visualizations */
+.card {
+  position: relative;
+  overflow: hidden;
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Dynamic Gradient Transition (Works in BOTH Light and Dark Modes) */
+.card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.card:hover::before { opacity: 1; }
+.card:hover {
+  transform: translateY(-5px) scale(1.01);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-lg);
+}
+
+/* Standard Inputs / Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 20px;
+  border-radius: var(--radius); font-family: inherit; font-size: 14px; font-weight: 600;
+  cursor: pointer; transition: all 0.2s ease; border: 1px solid transparent;
+}
+.btn-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); }
+.btn-primary:hover { background: #ff1a8c; }
+.btn-ghost { background: var(--bg); color: var(--text); border-color: var(--border-strong); }
+.btn-ghost:hover { background: var(--bg2); border-color: var(--text-3); }
+.btn-success { background: var(--teal-dim); color: var(--teal); border-color: var(--teal); }
+
+input, select, textarea {
+  background: var(--bg2); border: 1px solid var(--border);
+  color: var(--text); border-radius: var(--radius); padding: 12px 16px;
+  outline: none; font-size: 14px; transition: all 0.2s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-dim); }
+
+.scrollable { padding: 40px 48px; overflow-y: auto; overflow-x: hidden; height: 100%; }
+.section-label { font-size: 11px; font-weight: 800; letter-spacing: 0.15em; text-transform: uppercase; color: var(--text-3); }
+.confidence-bar { height: 6px; background: var(--bg4); border-radius: 6px; overflow: hidden; }
+.confidence-fill { height: 100%; border-radius: 6px; animation: progress-fill 0.8s var(--ease-out) both; }
+
+/* Sharp Callouts */
+.callout { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--violet); padding: 20px; color: var(--text-2); margin: 32px 0; }
+.callout-title { font-size: 14px; font-weight: 800; color: var(--violet); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+.callout-note { background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--primary); padding: 20px; color: var(--text-2); margin: 32px 0; }
+.callout-note-title { font-size: 14px; font-weight: 800; color: var(--primary); margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+
+/* Added: data table rows (IdentityExplorer, Beneficiary360 records tab) — grid columns
+   are set per-instance via inline style, this class supplies shared row chrome. */
+.table-row {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.table-row:last-child { border-bottom: none; }
+.table-row:hover { background: var(--glass-highlight); }
+
+/* --- Futuristic Chalky Visuals CSS --- */
+@keyframes popIn { 0% { transform: scale(0); opacity: 0; } 80% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes drawPath { from { stroke-dashoffset: 400; } to { stroke-dashoffset: 0; } }
+@keyframes floatUp { 0% { transform: translateY(20px); opacity: 0; } 100% { transform: translateY(0); opacity: 1; } }
+@keyframes glowPulse { 0%, 100% { box-shadow: 0 0 0 0 var(--primary-dim); } 50% { box-shadow: 0 0 16px 4px var(--primary-dim); } }
+
+.dot-matrix { display: grid; grid-auto-flow: column; gap: 8px; align-items: end; }
+.dot { border-radius: 50%; background: var(--primary); opacity: 0.8; transition: all 0.3s ease; }
+.dot:hover { transform: scale(1.3); opacity: 1; box-shadow: 0 0 8px var(--primary); }
+.dot-secondary { background: var(--secondary); }
+.dot-amber { background: var(--amber); }
+.dot-green { background: var(--green); }
+
+.block-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.block { border-radius: 8px; background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: blur(8px); transition: all 0.3s; animation: popIn 0.5s both; }
+.block:hover { transform: translateY(-4px); border-color: var(--primary); box-shadow: var(--shadow-glow); }
+
+.timeline-container { position: relative; }
+.timeline-line { position: absolute; left: 20px; top: 0; bottom: 0; width: 4px; background: linear-gradient(var(--primary), var(--secondary)); border-radius: 4px; }
+.timeline-node { position: absolute; left: 11px; width: 22px; height: 22px; border-radius: 50%; background: var(--bg); border: 3px solid var(--primary); animation: glowPulse 2s infinite; }
+.timeline-card { margin-left: 48px; padding: 16px; background: var(--glass-bg); border: 1px solid var(--glass-border); backdrop-filter: blur(16px); border-radius: var(--radius); animation: floatUp 0.6s ease-out both; }
+
+.flow-path { fill: none; stroke-width: 6; stroke-linecap: round; stroke-dasharray: 400; animation: drawPath 2s ease-out forwards; transition: all 0.3s; }
+.flow-path:hover { stroke-width: 10; filter: drop-shadow(0 0 6px var(--primary)); }
+.flow-node { fill: var(--bg); stroke: var(--border); stroke-width: 2; }
+
+/* ============================================================
+   GLASS TANK — reusable glassy liquid-fill gauge.
+   Technique only (glass card + gradient fill + wave highlight),
+   reskinned to our own tokens — not a literal fluid-tank copy.
+   Used once, deliberately: DataQuality's headline health score.
+   Reused loosely as a reference for anything else where "how full
+   is this" is genuinely the right metaphor.
+   ============================================================ */
+@keyframes tankWave { 0%, 100% { transform: translateX(-4%) rotate(-1deg); } 50% { transform: translateX(4%) rotate(1deg); } }
+@keyframes tankRise { from { height: 0%; } to { height: var(--tank-pct); } }
+
+.tooltip-bubble {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg4);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+  box-shadow: var(--shadow);
+  z-index: 700;
+  pointer-events: none;
+  animation: fadeIn 0.12s ease-out both;
+}
+.tooltip-bubble::after {
+  content: "";
+  position: absolute; top: 100%; left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--bg4);
+}
+
+.glass-tank {
+  position: relative;
+  width: 92px;
+  height: 220px;
+  margin: 0 auto;
+  border: 1.5px solid var(--glass-border);
+  border-radius: 46px / 10%;
+  background: linear-gradient(90deg, var(--glass-highlight), var(--glass-bg), var(--glass-highlight));
+  overflow: hidden;
+  box-shadow: inset 6px 0 14px rgba(255,255,255,0.05), inset -6px 0 14px rgba(0,0,0,0.12), var(--shadow);
+}
+.glass-tank .glass-tank-liquid {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  height: var(--tank-pct);
+  background: linear-gradient(180deg, var(--tank-color-light, var(--teal)), var(--tank-color, var(--green)));
+  animation: tankRise 1s var(--ease-out) both;
+  box-shadow: inset 0 6px 12px rgba(255,255,255,0.15);
+}
+.glass-tank .glass-tank-liquid::before {
+  content: ""; position: absolute; left: -30%; top: -7px; width: 160%; height: 18px;
+  background: var(--tank-color-light, var(--teal));
+  border-radius: 50%; opacity: 0.75; filter: blur(1px);
+  animation: tankWave 3s ease-in-out infinite;
+}
+.glass-tank .glass-tank-shine {
+  position: absolute; top: 14px; left: 12px; width: 8px; height: 190px;
+  border-radius: 50%; filter: blur(2px);
+  background: linear-gradient(transparent, rgba(255,255,255,0.35), transparent);
+}
+.glass-tank .glass-tank-label {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 800; color: var(--text); text-shadow: 0 1px 2px rgba(0,0,0,0.25); z-index: 2;
+}
+.glass-tank-sm {
+  position: relative; width: 68px; height: 128px; margin: 0 auto;
+  border: 1.5px solid var(--glass-border); border-radius: 34px / 11%;
+  background: linear-gradient(90deg, var(--glass-highlight), var(--glass-bg), var(--glass-highlight));
+  overflow: hidden;
+  box-shadow: inset 5px 0 10px rgba(255,255,255,0.05), inset -5px 0 10px rgba(0,0,0,0.12), var(--shadow-sm);
+}
+.glass-tank-sm .glass-tank-liquid {
+  position: absolute; left: 0; right: 0; bottom: 0; height: var(--tank-pct);
+  background: linear-gradient(180deg, var(--tank-color-light, var(--teal)), var(--tank-color, var(--green)));
+  animation: tankRise 1s var(--ease-out) both;
+  box-shadow: inset 0 6px 12px rgba(255,255,255,0.15);
+}
+.glass-tank-sm .glass-tank-liquid::before {
+  content: ""; position: absolute; left: -30%; top: -6px; width: 160%; height: 14px;
+  background: var(--tank-color-light, var(--teal)); border-radius: 50%; opacity: 0.75; filter: blur(1px);
+  animation: tankWave 3s ease-in-out infinite;
+}
+.glass-tank-sm .glass-tank-shine {
+  position: absolute; top: 10px; left: 9px; width: 6px; height: 108px; border-radius: 50%; filter: blur(2px);
+  background: linear-gradient(transparent, rgba(255,255,255,0.35), transparent);
+}
+.glass-tank-sm .glass-tank-label {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 800; color: var(--text); text-shadow: 0 1px 2px rgba(0,0,0,0.25); z-index: 2;
+}
+/* ============================================================
+   GLASS BAR — horizontal sibling to .glass-tank, same glass +
+   gradient-fill + shine language, for inline progress contexts
+   like Overview's Cross-Program Intelligence.
+   ============================================================ */
+@keyframes barFill { from { width: 0%; } to { width: var(--bar-pct); } }
+@keyframes barShine { 0%, 100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+
+.glass-bar {
+  position: relative;
+  width: 100%;
+  height: var(--bar-h, 14px);
+  border-radius: 999px;
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(180deg, var(--glass-highlight), var(--glass-bg));
+  overflow: hidden;
+  box-shadow: inset 0 2px 5px rgba(0,0,0,0.15), var(--shadow-sm);
+}
+.glass-bar-fill {
+  position: absolute; top: 0; left: 0; bottom: 0;
+  width: var(--bar-pct);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--bar-color), var(--bar-color-light, var(--bar-color)));
+  animation: barFill 1s var(--ease-out) both;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.35), inset 0 -2px 4px rgba(0,0,0,0.15);
+}
+.glass-bar-shine {
+  position: absolute; top: 1px; left: 6px; right: 6px; height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  animation: barShine 2.4s ease-in-out infinite;
+}
+
+.glass-segment-bar { position: relative; border: 1px solid var(--glass-border); box-shadow: inset 0 2px 5px rgba(0,0,0,0.15), var(--shadow-sm); }
+.glass-segment-bar::after {
+  content: ""; position: absolute; top: 1px; left: 6px; right: 6px; height: 3px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.55), transparent);
+  animation: barShine 2.4s ease-in-out infinite; pointer-events: none;
+}
+
+@keyframes graphTilt {
+  0%, 100% { transform: rotateY(-9deg) rotateX(2deg); }
+  50%      { transform: rotateY(9deg) rotateX(-2deg); }
+}
+.graph-3d-wrap {
+  perspective: 900px;
+  transform-style: preserve-3d;
+}
+.graph-3d-wrap svg {
+  animation: graphTilt 4s ease-in-out infinite;
+  transform-style: preserve-3d;
+  filter: drop-shadow(0 12px 20px rgba(0,0,0,0.25));
+}
+@media (prefers-reduced-motion: reduce) { .graph-3d-wrap svg { animation: none; } }
+
+/* Beneficiary 360 header: name/programs vs. the two confidence gauges */
+.beneficiary-hero {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 24px;
+}
+@media (max-width: 640px) {
+  .beneficiary-hero { grid-template-columns: 1fr; }
+  .beneficiary-hero > div:last-child { justify-content: flex-start; }
+}
+
+/* Safety net: nothing should ever be wider than the viewport unless it
+   opts into .hscroll explicitly. Catches any grid/flex child that ignores
+   its column tracks on narrow screens. */
+#root, .scrollable { max-width: 100vw; overflow-x: hidden; }
+/* ===================================================================
+   RESPONSIVE — added. The layout previously assumed a fixed desktop
+   viewport (fixed sidebar width, hard-coded grid-template-columns via
+   inline styles, `overflow: hidden` on body). These classes replace
+   the fixed-column inline grids that components now opt into via
+   className (see App/Overview/DataQuality/Beneficiary360/
+   IdentityExplorer/DuplicateResolution), plus base breakpoints for
+   the app shell itself.
+   =================================================================== */
+
+.grid-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+.grid-quality-5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; }
+.grid-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.grid-hero { display: grid; grid-template-columns: 1fr 300px; gap: 24px; }
+.compare-grid { display: grid; grid-template-columns: 1fr 160px 1fr; gap: 0; }
+.table-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+@media (max-width: 1080px) {
+  .grid-quality-5 { grid-template-columns: repeat(3, 1fr); }
+  .grid-2col { grid-template-columns: 1fr; }
+  .grid-hero { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 900px) {
+  .grid-metrics { grid-template-columns: repeat(2, 1fr); }
+  :root { --sidebar-w: 220px; }
+}
+
+@media (max-width: 820px) {
+  .compare-grid { grid-template-columns: 1fr; }
+  .compare-grid > .card:first-child { border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+  .compare-grid > .card:last-child { border-radius: 0 0 var(--radius-lg) var(--radius-lg); }
+}
+
+@media (max-width: 768px) {
+  body { overflow: auto; }
+  .scrollable { padding: 24px 20px; }
+  .sidebar-3d {
+    position: fixed;
+    inset: 0 auto 0 0;
+    height: 100vh;
+    z-index: 40;
+    box-shadow: 12px 0 32px -8px rgba(0,0,0,0.35);
+  }
+  .grid-quality-5 { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 520px) {
+  .grid-metrics { grid-template-columns: 1fr; }
+  .grid-quality-5 { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+}
+
+/* Respect reduced-motion preference across all decorative animation */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

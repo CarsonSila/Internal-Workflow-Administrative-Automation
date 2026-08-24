@@ -1,0 +1,281 @@
+"""
+main.py — FastAPI backend for the PLP Identity Dashboard.
+
+Run it:
+    cd backend
+    pip install fastapi uvicorn pandas openpyxl sqlalchemy psycopg2-binary faker
+    uvicorn main:app --reload --port 8000
+"""
+import os
+import subprocess
+import sys
+from difflib import SequenceMatcher
+from pathlib import Path
+from typing import Optional
+
+import pandas as pd
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, func
+from sqlalchemy.orm import sessionmaker, declarative_base
+
+DATA_DIR = Path(__file__).parent / "mock_data"
+
+# =============================================================================
+# DATABASE SETTINGS - CHOOSE YOUR DATABASE!
+# =============================================================================
+
+# Set to False to use SQLite (zero-config, runs immediately). 
+# Set to True to use PostgreSQL (must have the server running).
+USE_POSTGRES = False  
+
+if USE_POSTGRES:
+    # NOTE: Replace with your actual PostgreSQL credentials!
+    DATABASE_URL = "postgresql://postgres:YOUR_PASSWORD@localhost:5432/power_learn"
+else:
+    # SQLite - Runs instantly, no setup needed
+    DATABASE_URL = "sqlite:///./plp_database.db"
+
+# =============================================================================
+
+app = FastAPI(title="PLP Identity Dashboard API")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# SQLite requires check_same_thread=False to work with FastAPI
+engine_kwargs = {"connect_args": {"check_same_thread": False}} if "sqlite" in DATABASE_URL else {}
+engine = create_engine(DATABASE_URL, **engine_kwargs)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+class SourceRecordDB(Base):
+    __tablename__ = "source_records"
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(String, unique=True, index=True)
+    beneficiary_id = Column(String, index=True)
+    name = Column(String)
+    national_id = Column(String, index=True)
+    phone = Column(String)
+    email = Column(String)
+    location = Column(String)
+    program = Column(String)
+    ingested_at = Column(String)
+    data_quality_score = Column(Float)
+
+class BeneficiaryDB(Base):
+    __tablename__ = "beneficiaries"
+    id = Column(Integer, primary_key=True, index=True)
+    beneficiary_id = Column(String, unique=True, index=True)
+    name = Column(String)
+    national_id = Column(String, index=True)
+    programs = Column(String)
+    confidence = Column(Float)
+    health = Column(Float)
+    status = Column(String)
+    phone = Column(String)
+    email = Column(String)
+    location = Column(String)
+
+Base.metadata.create_all(bind=engine)
+
+def _load(name: str) -> pd.DataFrame:
+    path = DATA_DIR / name
+    if not path.exists():
+        raise HTTPException(status_code=503, detail=f"{name} not found — run `python generate_data.py` first.")
+    return pd.read_csv(path)
+
+def name_similarity(a: str, b: str) -> float:
+    return SequenceMatcher(None, str(a).lower(), str(b).lower()).ratio()
+
+def compute_match_confidence(rec_a: dict, rec_b: dict) -> float:
+    weights = {"national_id": 0.35, "phone": 0.25, "dob": 0.15, "name": 0.20, "email": 0.05}
+    score = 0.0
+    if rec_a.get("national_id") == rec_b.get("national_id"): score += weights["national_id"]
+    if rec_a.get("phone") == rec_b.get("phone"): score += weights["phone"]
+    if rec_a.get("dob") == rec_b.get("dob"): score += weights["dob"]
+    score += weights["name"] * name_similarity(rec_a.get("name", ""), rec_b.get("name", ""))
+    if rec_a.get("email") == rec_b.get("email"): score += weights["email"]
+    return round(score * 100, 1)
+
+@app.post("/api/generate-data")
+def trigger_generation():
+    try:
+        script_path = Path(__file__).parent / "generate_data.py"
+        result = subprocess.run([sys.executable, str(script_path)], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise HTTPException(500, detail=f"Generation failed: {result.stderr}")
+        return {"status": "Data regenerated successfully", "message": result.stdout}
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+@app.get("/api/download/{dataset}")
+def download_dataset(dataset: str, format: str = Query(default="xlsx", pattern="^(xlsx|csv)$")):
+    file_map = {
+        "beneficiaries": DATA_DIR / "beneficiaries.csv",
+        "source_records": DATA_DIR / "source_records.csv",
+        "audit_logs": DATA_DIR / "audit_logs.csv",
+        "anomalies": DATA_DIR / "anomalies.csv",
+        "quality_dimensions": DATA_DIR / "quality_dimensions.csv",
+    }
+    if dataset not in file_map or not file_map[dataset].exists():
+        raise HTTPException(404, "Dataset not found. Generate data first.")
+    
+    df = pd.read_csv(file_map[dataset])
+    
+    if format == "xlsx":
+        output_path = DATA_DIR / f"{dataset}_export.xlsx"
+        df.to_excel(output_path, index=False, engine='openpyxl')
+        return FileResponse(
+            path=output_path, 
+            filename=f"{dataset}.xlsx", 
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    else:
+        return FileResponse(
+            path=file_map[dataset], 
+            filename=f"{dataset}.csv", 
+            media_type="text/csv"
+        )
+
+@app.post("/api/ingest-data")
+def ingest_data_into_db():
+    try:
+        df_records = _load("source_records.csv")
+        df_bens = _load("beneficiaries.csv")
+
+        db = SessionLocal()
+        try:
+            # SQLite / PostgreSQL Clear and Re-Insert (comment this out for Upsert later)
+            db.query(SourceRecordDB).delete()
+            db.query(BeneficiaryDB).delete()
+            
+            for _, row in df_records.iterrows():
+                db.add(SourceRecordDB(
+                    record_id=row['record_id'], beneficiary_id=row['beneficiary_id'],
+                    name=row['name'], national_id=str(row['national_id']),
+                    phone=row['phone'], email=row['email'], location=row['location'],
+                    program=row['program'], ingested_at=row['ingested_at'],
+                    data_quality_score=row['data_quality_score']
+                ))
+            
+            for _, row in df_bens.iterrows():
+                db.add(BeneficiaryDB(
+                    beneficiary_id=row['beneficiary_id'], name=row['name'],
+                    national_id=str(row['national_id']), programs=row['programs'],
+                    confidence=row['confidence'], health=row['health'], status=row['status'],
+                    phone=row['phone'], email=row['email'], location=row['location']
+                ))
+            
+            db.commit()
+            return {"status": "Data ingested into DB successfully", "records": len(df_records), "beneficiaries": len(df_bens)}
+        except Exception as e:
+            db.rollback()
+            raise HTTPException(500, detail=f"Ingestion failed: {str(e)}")
+        finally:
+            db.close()
+    except Exception as e:
+        raise HTTPException(500, detail=str(e))
+
+@app.get("/api/overview")
+def overview():
+    records = _load("source_records.csv")
+    beneficiaries = _load("beneficiaries.csv")
+    quality = _load("quality_dimensions.csv")
+    program_counts = records.groupby("program").size().to_dict()
+    avg_health = round(quality["value"].mean(), 1)
+    return {
+        "sourceRecords": len(records),
+        "trustedIdentities": len(beneficiaries),
+        "pendingReviews": int((beneficiaries["status"] == "Review").sum()),
+        "dataHealth": avg_health,
+        "programs": [{"name": p, "records": int(c)} for p, c in program_counts.items()],
+    }
+
+@app.get("/api/beneficiaries")
+def list_beneficiaries(search: str = "", status: str = "all", page: int = 1, page_size: int = Query(default=25, le=200)):
+    df = _load("beneficiaries.csv")
+    if search:
+        mask = df["name"].str.contains(search, case=False, na=False) | df["beneficiary_id"].str.contains(search, case=False, na=False)
+        df = df[mask]
+    if status != "all":
+        df = df[df["status"].str.lower() == status.lower()]
+    total = len(df)
+    start = (page - 1) * page_size
+    page_df = df.iloc[start:start + page_size]
+    return {"total": total, "page": page, "pageSize": page_size, "results": page_df.to_dict(orient="records")}
+
+@app.get("/api/beneficiaries/{beneficiary_id}")
+def beneficiary_detail(beneficiary_id: str):
+    beneficiaries = _load("beneficiaries.csv")
+    records = _load("source_records.csv")
+    row = beneficiaries[beneficiaries["beneficiary_id"] == beneficiary_id]
+    if row.empty: raise HTTPException(status_code=404, detail="Beneficiary not found")
+    ben_records = records[records["beneficiary_id"] == beneficiary_id]
+    return {"beneficiary": row.iloc[0].to_dict(), "sourceRecords": ben_records.to_dict(orient="records")}
+
+@app.get("/api/duplicate-matches")
+def duplicate_matches(limit: int = 25):
+    records = _load("source_records.csv")
+    candidates = []
+    for nid, group in records.groupby("national_id"):
+        if len(group) < 2: continue
+        rows = group.to_dict(orient="records")
+        a, b = rows[0], rows[1]
+        if a["record_id"] == b["record_id"]: continue
+        confidence = compute_match_confidence(a, b)
+        candidates.append({
+            "recordA": a, "recordB": b, "confidence": confidence,
+            "recommendation": "auto-merge" if confidence >= 98 else "review" if confidence >= 75 else "reject",
+        })
+        if len(candidates) >= limit: break
+    candidates.sort(key=lambda c: c["confidence"], reverse=True)
+    return {"matches": candidates}
+
+@app.get("/api/audit-logs")
+def audit_logs(limit: int = 50):
+    df = _load("audit_logs.csv").sort_values(["date", "time"], ascending=False).head(limit)
+    return {"events": df.to_dict(orient="records")}
+
+@app.get("/api/anomalies")
+def anomalies():
+    df = _load("anomalies.csv")
+    records = df.to_dict(orient="records")
+    for r in records:
+        raw = r.get("records")
+        r["records"] = raw.split("|") if isinstance(raw, str) and raw else []
+    return {"anomalies": records}
+
+@app.get("/api/quality-dimensions")
+def quality_dimensions():
+    df = _load("quality_dimensions.csv")
+    return {"dimensions": df.to_dict(orient="records")}
+
+@app.get("/api/sources")
+def get_sources():
+    records = _load("source_records.csv")
+    sources_list = []
+    for program, group in records.groupby("program"):
+        source_meta = {
+            "Scholarship": {"type": "PostgreSQL", "color": "#e60073"},
+            "Plus": {"type": "CSV / Pandas", "color": "#7c3aed"},
+            "Vocational": {"type": "Excel / Pandas", "color": "#0cdbc8"},
+            "Tech": {"type": "MySQL", "color": "#d97706"},
+        }.get(program, {"type": "Unknown", "color": "#64748b"})
+        avg_health = round(group["data_quality_score"].mean(), 1)
+        sources_list.append({
+            "id": len(sources_list) + 1,
+            "name": f"{program} Program",
+            "type": source_meta["type"],
+            "records": len(group),
+            "status": "Connected" if avg_health > 80 else "Warning",
+            "health": avg_health,
+            "last_sync": "1 min ago",
+            "color": source_meta["color"],
+        })
+    return {"sources": sources_list}

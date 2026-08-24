@@ -1,0 +1,16 @@
+{
+  "name": "Power Learn Project — Identity Dashboard",
+  "short_name": "PLP Dashboard",
+  "description": "Unified beneficiary identity resolution and data quality dashboard for the Power Learn Project.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0d0d13",
+  "theme_color": "#e60073",
+  "orientation": "any",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
