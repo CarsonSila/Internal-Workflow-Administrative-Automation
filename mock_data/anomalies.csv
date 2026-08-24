@@ -1,0 +1,6 @@
+id,title,detail,level,program,detected,records
+ANO-001,7 beneficiaries share the same phone number,+254 700 123 456 appears across 7 distinct records in 3 different programs. Potential guardian shared or data entry error.,Anomaly,Cross-program,2026-08-24T18:12:46.695917,REC-SCH-00140|REC-TEC-00082|REC-VOC-00311
+ANO-002,Unusual duplicate cluster detected,A cluster of 14 records in Vocational shows unusually high mutual similarity scores (>85%). Potential bulk import issue.,Anomaly,Vocational,2026-08-24T08:12:46.695930,REC-VOC-00201|REC-VOC-00202|REC-VOC-00203
+ANO-003,Potential identity conflict: 3 records,Three records have identical National IDs but different names and dates of birth. Needs human verification of documents.,Review,Scholarship,2026-08-24T12:12:46.695945,REC-SCH-00731|REC-SCH-00732|REC-SCH-00733
+ANO-004,Spike in new registrations from one location,"108 new registrations from 'Mombasa, Port Area' ingested in a 2-hour window. 3.4x above normal rate.",Review,Plus,2026-08-23T22:12:46.695953,
+ANO-005,Name normalization resolved 412 variants,"AI engine normalized 412 name variations causing false-negative duplicate detection (e.g. Wanjiru/Wanjiku, hyphenated surnames).",Normal,All programs,2026-08-24T15:12:46.695960,
