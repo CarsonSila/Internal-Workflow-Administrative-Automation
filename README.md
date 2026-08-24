@@ -296,3 +296,5 @@ MIT License - see LICENSE file for details
 - KPC Inuka Fellowship Hackathon
 - FastAPI & React communities
 - RapidFuzz for fuzzy matching
+#   f o r c e   r e d e p l o y  
+ 
