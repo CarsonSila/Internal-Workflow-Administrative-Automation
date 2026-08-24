@@ -35,9 +35,12 @@ app.add_middleware(
 )
 
 # Dynamic path resolution for Mock Data CSVs
-MOCK_DATA_DIR = os.environ.get("MOCK_DATA_DIR", "mock_data")
-if not os.path.exists(MOCK_DATA_DIR) and os.path.exists("/workspace/scratch/mock_data"):
-    MOCK_DATA_DIR = "/workspace/scratch/mock_data"
+MOCK_DATA_DIR = os.environ.get("MOCK_DATA_DIR", "/app/mock_data")
+if not os.path.exists(MOCK_DATA_DIR):
+    for path in ["/app/mock_data", "/workspace/scratch/mock_data", "mock_data", "./mock_data"]:
+        if os.path.exists(path):
+            MOCK_DATA_DIR = path
+            break
 
 def get_file_path(filename: str) -> str:
     return os.path.join(MOCK_DATA_DIR, filename)
@@ -54,6 +57,11 @@ holding_on_mismatch = True
 
 def load_data():
     global beneficiaries_df, source_records_df, audit_logs_df, anomalies_df, quality_dimensions_df
+    print(f"🔍 Attempting to load data from: {MOCK_DATA_DIR}")
+    print(f"📁 Directory exists: {os.path.exists(MOCK_DATA_DIR)}")
+    if os.path.exists(MOCK_DATA_DIR):
+        files = os.listdir(MOCK_DATA_DIR)
+        print(f"📄 Files in directory: {files}")
     try:
         beneficiaries_df = pd.read_csv(get_file_path("beneficiaries.csv"))
         source_records_df = pd.read_csv(get_file_path("source_records.csv"))
@@ -61,8 +69,15 @@ def load_data():
         anomalies_df = pd.read_csv(get_file_path("anomalies.csv"))
         quality_dimensions_df = pd.read_csv(get_file_path("quality_dimensions.csv"))
         print(f"✅ Successfully loaded datasets from {MOCK_DATA_DIR}")
+        print(f"   Beneficiaries: {len(beneficiaries_df)} rows")
+        print(f"   Source records: {len(source_records_df)} rows")
+        print(f"   Audit logs: {len(audit_logs_df)} rows")
+        print(f"   Anomalies: {len(anomalies_df)} rows")
+        print(f"   Quality dimensions: {len(quality_dimensions_df)} rows")
     except Exception as e:
         print(f"❌ Error loading datasets: {str(e)}")
+        import traceback
+        traceback.print_exc()
         # Fallbacks to prevent application crashes
         beneficiaries_df = pd.DataFrame()
         source_records_df = pd.DataFrame()
