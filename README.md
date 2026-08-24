@@ -261,6 +261,7 @@ The console and API are already on common ground—this document serves as the i
 ### Environment Variables
 ```env
 VITE_API_BASE_URL=http://localhost:8000
+```
 
 ## 🔐 Authentication
 
