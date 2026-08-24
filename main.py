@@ -942,3 +942,17 @@ def dispatch_notification(req: NotificationRequest, current_user: User = Depends
     audit_logs_df = pd.concat([pd.DataFrame([{"time": now.strftime("%H:%M:%S"), "date": now.strftime("%Y-%m-%d"), "event": "Notification Dispatched", "detail": f"Mock {req.channel.upper()} notification sent to {req.recipient} for {reference_id}.", "type": "notification", "user": current_user.username}]), audit_logs_df], ignore_index=True)
     audit_logs_df.to_csv(get_file_path("audit_logs.csv"), index=False)
     return NotificationResponse(status="queued", channel=req.channel, recipient=req.recipient, reference_id=reference_id)
+
+
+@app.get("/api/debug/data-status")
+def debug_data_status():
+    return {
+        "mock_data_dir": MOCK_DATA_DIR,
+        "dir_exists": os.path.exists(MOCK_DATA_DIR),
+        "files_in_dir": os.listdir(MOCK_DATA_DIR) if os.path.exists(MOCK_DATA_DIR) else [],
+        "beneficiaries_count": len(beneficiaries_df),
+        "source_records_count": len(source_records_df),
+        "audit_logs_count": len(audit_logs_df),
+        "anomalies_count": len(anomalies_df),
+        "quality_dimensions_count": len(quality_dimensions_df),
+    }
