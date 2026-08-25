@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertCircle, AreaChart as AreaChartIcon, BarChart3, CheckCircle2, Copy, Database, Layers, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useOverviewMetrics, useOverviewCharts, useProgramMetrics, useQualityDimensions, useQualityTrend } from "../api/hooks";
+import { useOverviewMetrics, useOverviewCharts, useProgramMetrics, useQualityDimensions, useQualityTrend, useFinancialReconciliation } from "../api/hooks";
+import { Heading, Panel, money, FinanceCard } from "./ui/DashboardUI";
 
 interface Dimension { label: string; value: number; issues: number; color: string; desc: string; }
 interface Finance { total_disbursed: number; duplicate_leakage_prevented: number; high_risk_payments_flagged: number; reconciliation_rate: number; at_risk_records_count: number; }
@@ -12,8 +13,9 @@ export default function DataQualityDashboard() {
   const { data: programs } = useProgramMetrics();
   const { data: quality } = useQualityDimensions();
   const { data: trend } = useQualityTrend();
+  const { data: finance, isLoading: financeLoading } = useFinancialReconciliation();
 
-  const loading = metricsLoading || chartsLoading;
+  const loading = metricsLoading || chartsLoading || financeLoading;
   const dimensions = quality?.dimensions || [];
 
   const cards = [
@@ -46,8 +48,19 @@ export default function DataQualityDashboard() {
         ))}
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {finance && (
+          <>
+            <FinanceCard label="Total disbursed" value={money(finance.total_disbursed)} />
+            <FinanceCard label="Leakage prevented" value={money(finance.duplicate_leakage_prevented)} tone="text-emerald-700" />
+            <FinanceCard label="High-risk payments" value={money(finance.high_risk_payments_flagged)} tone="text-rose-700" />
+            <FinanceCard label="Reconciliation rate" value={`${finance.reconciliation_rate}%`} tone="text-indigo-700" />
+          </>
+        )}
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
-        <section className="executive-card p-5 sm:p-6 lg:col-span-2">
+        <Panel className="lg:col-span-2">
           <Heading icon={<BarChart3 size={16} />} title="Pillar data composition" copy="Unique master profiles versus duplicate ingestion by operational program." />
           <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
@@ -62,102 +75,119 @@ export default function DataQualityDashboard() {
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </section>
+        </Panel>
 
-        <section className="executive-card p-5 sm:p-6">
-          <Heading icon={<Users size={16} />} title="Pillar enrollment share" copy="Master profile distribution across operational pillars." />
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
+        <Panel>
+          <Heading icon={<Users size={16} />} title="Pillar enrollment share" copy="Master profile distribution across programs." />
+          <div className="relative h-56">
+            <ResponsiveContainer>
               <PieChart>
                 <Pie
                   data={charts.beneficiaries_by_program}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={70}
                   dataKey="value"
                   nameKey="name"
-                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                  innerRadius={55}
+                  outerRadius={80}
+                  paddingAngle={3}
                   labelLine={false}
                 >
-                  {charts.beneficiaries_by_program.map((_, i) => (
-                    <Cell key={`cell-${i}`} fill={charts.beneficiaries_by_program[i].color} />
+                  {charts.beneficiaries_by_program.map((entry) => (
+                    <Cell key={entry.name} fill={entry.color} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(value: any) => [value.toLocaleString(), "beneficiaries"]} />
+                <Tooltip />
               </PieChart>
             </ResponsiveContainer>
+            <strong className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-800">
+              {metrics.unique_beneficiaries}
+            </strong>
           </div>
-        </section>
+        </Panel>
 
-        <section className="executive-card p-5 sm:p-6 lg:col-span-2">
-          <Heading icon={<AreaChartIcon size={16} />} title="Match confidence distribution" copy="Fuzzy-match confidence buckets for all beneficiary pair comparisons." />
+        <Panel className="lg:col-span-2">
+          <Heading icon={<AreaChartIcon size={16} />} title="ML match score distribution" copy="Confidence buckets generated from identity matching signals." />
           <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer>
               <AreaChart data={charts.match_confidence}>
                 <defs>
-                  <linearGradient id="confidenceGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00828a" stopOpacity={0.3} />
+                  <linearGradient id="confidenceFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00828a" stopOpacity={0.25} />
                     <stop offset="95%" stopColor="#00828a" stopOpacity={0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="range" fontSize={10} />
                 <YAxis fontSize={10} />
-                <Tooltip formatter={(value: any) => [value?.toLocaleString() ?? "0", "profiles"]} />
-                <Area type="monotone" dataKey="count" stroke="#00828a" fillOpacity={1} fill="url(#confidenceGradient)" />
+                <Tooltip />
+                <Area type="monotone" dataKey="count" stroke="#00828a" fill="url(#confidenceFill)" strokeWidth={2} />
               </AreaChart>
             </ResponsiveContainer>
           </div>
-        </section>
+        </Panel>
 
-        <section className="executive-card p-5 sm:p-6">
-          <Heading icon={<TrendingUp size={16} />} title="Data quality trajectory" copy="30-day rolling average of ingestion quality scores." />
-          <div className="h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trend?.data.map((v, i) => ({ day: i + 1, value: v })) || []}>
+        <Panel>
+          <Heading icon={<TrendingUp size={16} />} title="Ingestion scans vs merges" copy="AI scans and human merge activity over the last 30 days." />
+          <div className="h-64">
+            <ResponsiveContainer>
+              <LineChart data={charts.merges_over_time}>
                 <CartesianGrid vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="day" fontSize={10} />
-                <YAxis fontSize={10} domain={[70, 100]} />
-                <Tooltip formatter={(value: any) => [`${value ?? 0}%`, "quality"]} />
-                <Line type="monotone" dataKey="value" stroke="#00828a" strokeWidth={2} dot={false} />
+                <XAxis dataKey="date" fontSize={9} interval={5} />
+                <YAxis fontSize={10} />
+                <Tooltip />
+                <Legend />
+                <Line type="monotone" dataKey="scans" name="AI scans" stroke="#7c3aed" strokeWidth={2} />
+                <Line type="monotone" dataKey="merges" name="Human merges" stroke="#d91d4e" strokeWidth={2} />
               </LineChart>
             </ResponsiveContainer>
           </div>
-        </section>
+        </Panel>
 
-        <section className="executive-card p-5 sm:p-6">
-          <Heading icon={<ShieldCheck size={16} />} title="Quality dimensions" copy="Five canonical data quality dimensions with live scores." />
-          <div className="space-y-3">
-            {dimensions.map((dim: Dimension) => (
-              <div key={dim.label} className="space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="font-medium text-slate-700">{dim.label}</span>
-                  <span className="font-bold text-slate-900">{dim.value}%</span>
+        <Panel>
+          <Heading icon={<ShieldCheck size={16} />} title="Pillar leakage & error matrix" copy="Duplicate rates and quality scores by operational program." />
+          <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            {dimensions.map((dimension) => (
+              <div key={dimension.label} className="rounded-lg bg-slate-50 p-3">
+                <div className="flex justify-between text-[10px] font-bold uppercase text-slate-500">
+                  <span>{dimension.label}</span>
+                  <span>{dimension.value}%</span>
                 </div>
-                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-500"
-                    style={{ width: `${dim.value}%`, backgroundColor: dim.color }}
-                  />
+                <div className="mt-2 h-1.5 rounded-full bg-slate-200">
+                  <div className="h-full rounded-full" style={{ width: `${dimension.value}%`, backgroundColor: dimension.color }} />
                 </div>
-                <p className="text-[10px] text-slate-500">{dim.issues} open issues</p>
               </div>
             ))}
           </div>
-        </section>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-100 text-[10px] uppercase text-slate-400">
+                <tr>
+                  <th className="pb-3">Program</th>
+                  <th className="pb-3 text-center">Uniques</th>
+                  <th className="pb-3 text-center">Duplicates</th>
+                  <th className="pb-3 text-right">Influx rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {charts.duplicates_by_program.map((row) => (
+                  <tr key={row.program}>
+                    <td className="py-3 font-bold text-slate-700">{row.program}</td>
+                    <td className="py-3 text-center font-mono">{row.uniques}</td>
+                    <td className="py-3 text-center font-mono text-[#d91d4e]">{row.duplicates}</td>
+                    <td className="py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="h-2 w-24 rounded-full bg-slate-100">
+                          <div className="h-full rounded-full" style={{ width: `${row.rate}%`, backgroundColor: row.color }} />
+                        </div>
+                        <span className="w-12 text-right font-mono font-bold" style={{ color: row.color }}>{row.rate}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Panel>
       </div>
-    </div>
-  );
-}
-
-function Heading({ icon, title, copy }: { icon: React.ReactNode; title: string; copy: string }) {
-  return (
-    <div className="mb-4">
-      <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-800">
-        {icon}{title}
-      </h3>
-      <p className="mt-1 text-[11px] text-slate-400">{copy}</p>
     </div>
   );
 }

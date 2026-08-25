@@ -303,3 +303,14 @@ export function useQualityTrend() {
     staleTime: 60000,
   });
 }
+
+export function useFinancialReconciliation() {
+  return useQuery({
+    queryKey: ['financial', 'reconciliation'],
+    queryFn: async () => {
+      const res = await api.get<FinancialReconciliationSummary>('/api/v1/financial/reconciliation');
+      return res.data;
+    },
+    staleTime: 60000,
+  });
+}
