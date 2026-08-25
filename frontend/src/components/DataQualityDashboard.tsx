@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Activity, AlertCircle, AreaChart as AreaChartIcon, BarChart3, CheckCircle2, Copy, Database, Layers, ShieldCheck, TrendingUp, Users } from "lucide-react";
-import { Area, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useOverviewMetrics, useOverviewCharts, useProgramMetrics, useQualityDimensions, useQualityTrend } from "../api/hooks";
 
 interface Dimension { label: string; value: number; issues: number; color: string; desc: string; }
@@ -77,7 +77,7 @@ export default function DataQualityDashboard() {
                   outerRadius={70}
                   dataKey="value"
                   nameKey="name"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {charts.beneficiaries_by_program.map((_, i) => (
