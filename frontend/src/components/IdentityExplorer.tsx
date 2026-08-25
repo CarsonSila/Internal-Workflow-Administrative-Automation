@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useDebounce } from "use-debounce";
 import { AlertTriangle, EyeOff, HelpCircle, RefreshCw, Search, ShieldCheck } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useIdentities, useMutation, useQueryClient } from "../api/hooks";
+import { useIdentities } from "../api/hooks";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "../api/client";
 
 interface Identity {

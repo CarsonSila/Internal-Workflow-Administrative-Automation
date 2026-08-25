@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Activity, AlertCircle, BarChart3, CheckCircle2, Copy, Database, Layers, ShieldCheck, TrendingUp, Users } from "lucide-react";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Activity, AlertCircle, AreaChart, BarChart3, CheckCircle2, Copy, Database, Layers, ShieldCheck, TrendingUp, Users } from "lucide-react";
+import { Area, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useOverviewMetrics, useOverviewCharts, useProgramMetrics, useQualityDimensions, useQualityTrend } from "../api/hooks";
 
 interface Dimension { label: string; value: number; issues: number; color: string; desc: string; }
@@ -91,7 +91,7 @@ export default function DataQualityDashboard() {
         </section>
 
         <section className="executive-card p-5 sm:p-6 lg:col-span-2">
-          <Heading icon={<AreaIcon size={16} />} title="Match confidence distribution" copy="Fuzzy-match confidence buckets for all beneficiary pair comparisons." />
+          <Heading icon={<AreaChart size={16} />} title="Match confidence distribution" copy="Fuzzy-match confidence buckets for all beneficiary pair comparisons." />
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={charts.match_confidence}>
@@ -104,7 +104,7 @@ export default function DataQualityDashboard() {
                 <CartesianGrid vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="range" fontSize={10} />
                 <YAxis fontSize={10} />
-                <Tooltip formatter={(value: number) => [value.toLocaleString(), "profiles"]} />
+                <Tooltip formatter={(value: number | undefined) => [value?.toLocaleString() ?? "0", "profiles"]} />
                 <Area type="monotone" dataKey="count" stroke="#00828a" fillOpacity={1} fill="url(#confidenceGradient)" />
               </AreaChart>
             </ResponsiveContainer>
@@ -119,7 +119,7 @@ export default function DataQualityDashboard() {
                 <CartesianGrid vertical={false} stroke="#e2e8f0" />
                 <XAxis dataKey="day" fontSize={10} />
                 <YAxis fontSize={10} domain={[70, 100]} />
-                <Tooltip formatter={(value: number) => [`${value}%`, "quality"]} />
+                <Tooltip formatter={(value: number | undefined) => [`${value ?? 0}%`, "quality"]} />
                 <Line type="monotone" dataKey="value" stroke="#00828a" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
