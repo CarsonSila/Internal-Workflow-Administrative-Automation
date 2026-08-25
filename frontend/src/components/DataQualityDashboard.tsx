@@ -1,23 +1,163 @@
-import { useEffect, useState } from "react";
-import { Activity, AlertCircle, AreaChart as AreaIcon, BarChart3, CheckCircle2, Copy, Database, Layers, ShieldCheck, TrendingUp, Users } from "lucide-react";
+import { useQuery } from '@tanstack/react-query';
+import { Activity, AlertCircle, BarChart3, CheckCircle2, Copy, Database, Layers, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { useAuth } from "../context/AuthContext";
+import { useOverviewMetrics, useOverviewCharts, useProgramMetrics, useQualityDimensions, useQualityTrend } from "../api/hooks";
 
-interface Metrics { total_records: number; potential_duplicates: number; pending_reviews: number; confirmed_duplicates: number; unique_beneficiaries: number; records_merged: number; data_health: number; }
-interface Charts { duplicates_by_program: { program: string; uniques: number; duplicates: number; rate: number; color: string }[]; beneficiaries_by_program: { name: string; value: number; color: string }[]; match_confidence: { range: string; count: number }[]; merges_over_time: { date: string; merges: number; scans: number }[]; }
 interface Dimension { label: string; value: number; issues: number; color: string; desc: string; }
 interface Finance { total_disbursed: number; duplicate_leakage_prevented: number; high_risk_payments_flagged: number; reconciliation_rate: number; at_risk_records_count: number; }
-const API = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000";
 
 export default function DataQualityDashboard() {
-  const { token } = useAuth(); const [metrics, setMetrics] = useState<Metrics | null>(null); const [charts, setCharts] = useState<Charts | null>(null); const [dimensions, setDimensions] = useState<Dimension[]>([]); const [finance, setFinance] = useState<Finance | null>(null); const [loading, setLoading] = useState(true); const [error, setError] = useState("");
-  useEffect(() => { (async () => { try { const headers = { Authorization: `Bearer ${token}` }; const [metricResponse, chartResponse, qualityResponse, financeResponse] = await Promise.all([fetch(`${API}/api/overview/metrics`), fetch(`${API}/api/overview/charts`), fetch(`${API}/api/quality/dimensions`), fetch(`${API}/api/financial/reconciliation`, { headers })]); if (!metricResponse.ok || !chartResponse.ok || !qualityResponse.ok) throw new Error("Executive telemetry is unavailable."); setMetrics(await metricResponse.json()); setCharts(await chartResponse.json()); setDimensions((await qualityResponse.json()).dimensions); if (financeResponse.ok) setFinance(await financeResponse.json()); } catch (err) { setError(err instanceof Error ? err.message : "Unable to load executive telemetry."); } finally { setLoading(false); } })(); }, [token]);
+  const { data: metrics, isLoading: metricsLoading } = useOverviewMetrics();
+  const { data: charts, isLoading: chartsLoading } = useOverviewCharts();
+  const { data: programs } = useProgramMetrics();
+  const { data: quality } = useQualityDimensions();
+  const { data: trend } = useQualityTrend();
+
+  const loading = metricsLoading || chartsLoading;
+  const dimensions = quality?.dimensions || [];
+
+  const cards = [
+    { label: "Total raw records", value: metrics?.total_records ?? 0, sub: "Ingested across all pillars", icon: Database, color: "#00828a" },
+    { label: "Potential duplicates", value: metrics?.potential_duplicates ?? 0, sub: "Awaiting ML verification", icon: Copy, color: "#d97706" },
+    { label: "Pending reviews", value: metrics?.pending_reviews ?? 0, sub: "Action required", icon: AlertCircle, color: "#d91d4e" },
+    { label: "Confirmed duplicates", value: metrics?.confirmed_duplicates ?? 0, sub: "Resolved duplicate nodes", icon: CheckCircle2, color: "#2563eb" },
+    { label: "Unique beneficiaries", value: metrics?.unique_beneficiaries ?? 0, sub: "Clean master profiles", icon: Users, color: "#10b981" },
+    { label: "Records merged", value: metrics?.records_merged ?? 0, sub: "+24% historical activity", icon: Layers, color: "#7c3aed" },
+  ];
+
   if (loading) return <div className="flex min-h-[480px] flex-col items-center justify-center gap-3 text-slate-500"><div className="h-10 w-10 animate-spin rounded-full border-4 border-[#00828a] border-t-transparent" /><span className="eyebrow">Syncing executive telemetry...</span></div>;
-  if (error || !metrics || !charts) return <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm font-semibold text-rose-700">{error || "No dashboard telemetry returned."}</div>;
-  const cards = [{ label: "Total raw records", value: metrics.total_records.toLocaleString(), sub: "Ingested across all pillars", icon: Database, color: "#00828a" }, { label: "Potential duplicates", value: metrics.potential_duplicates.toLocaleString(), sub: "Awaiting ML verification", icon: Copy, color: "#d97706" }, { label: "Pending reviews", value: metrics.pending_reviews.toLocaleString(), sub: "Action required", icon: AlertCircle, color: "#d91d4e" }, { label: "Confirmed duplicates", value: metrics.confirmed_duplicates.toLocaleString(), sub: "Resolved duplicate nodes", icon: CheckCircle2, color: "#2563eb" }, { label: "Unique beneficiaries", value: metrics.unique_beneficiaries.toLocaleString(), sub: "Clean master profiles", icon: Users, color: "#10b981" }, { label: "Records merged", value: metrics.records_merged.toLocaleString(), sub: "+24% historical activity", icon: Layers, color: "#7c3aed" }];
-  return <div className="space-y-7 animate-fadeInUp"><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">{cards.map((card) => <article key={card.label} className="executive-card relative overflow-hidden p-4"><span className="absolute right-0 top-0 h-full w-1" style={{ backgroundColor: card.color }} /><div className="flex items-center justify-between"><span className="eyebrow pr-2">{card.label}</span><card.icon size={16} style={{ color: card.color }} /></div><strong className="mt-3 block text-2xl font-black text-slate-800">{card.value}</strong><span className="mt-1 inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold" style={{ color: card.color }}>{card.sub}</span></article>)}</div>{finance && <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4"><FinanceCard label="Total disbursed" value={money(finance.total_disbursed)} /><FinanceCard label="Leakage prevented" value={money(finance.duplicate_leakage_prevented)} tone="text-emerald-700" /><FinanceCard label="High-risk payments" value={money(finance.high_risk_payments_flagged)} tone="text-rose-700" /><FinanceCard label="Reconciliation rate" value={`${finance.reconciliation_rate}%`} tone="text-indigo-700" /></div>}<div className="grid gap-6 lg:grid-cols-3"><Panel className="lg:col-span-2"><Heading icon={<BarChart3 size={16} />} title="Pillar data composition" copy="Unique master profiles versus duplicate ingestion by operational program." /><div className="h-72"><ResponsiveContainer><BarChart data={charts.duplicates_by_program}><CartesianGrid vertical={false} stroke="#e2e8f0" /><XAxis dataKey="program" fontSize={10} /><YAxis fontSize={10} /><Tooltip /><Legend /><Bar dataKey="uniques" name="Unique beneficiaries" fill="#00828a" radius={[4, 4, 0, 0]} /><Bar dataKey="duplicates" name="Duplicate telemetry" fill="#d91d4e" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></Panel><Panel><Heading icon={<Users size={16} />} title="Pillar enrollment share" copy="Master profile distribution across programs." /><div className="relative h-56"><ResponsiveContainer><PieChart><Pie data={charts.beneficiaries_by_program} dataKey="value" nameKey="name" innerRadius={55} outerRadius={80} paddingAngle={3}>{charts.beneficiaries_by_program.map((entry) => <Cell key={entry.name} fill={entry.color} />)}</Pie><Tooltip /></PieChart></ResponsiveContainer><strong className="pointer-events-none absolute inset-0 flex items-center justify-center text-2xl font-black text-slate-800">{metrics.unique_beneficiaries}</strong></div></Panel></div><div className="grid gap-6 lg:grid-cols-2"><Panel><Heading icon={<AreaIcon size={16} />} title="ML match score distribution" copy="Confidence buckets generated from identity matching signals." /><div className="h-64"><ResponsiveContainer><AreaChart data={charts.match_confidence}><defs><linearGradient id="confidenceFill" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor="#00828a" stopOpacity={.25} /><stop offset="95%" stopColor="#00828a" stopOpacity={0} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#e2e8f0" /><XAxis dataKey="range" fontSize={10} /><YAxis fontSize={10} /><Tooltip /><Area type="monotone" dataKey="count" stroke="#00828a" fill="url(#confidenceFill)" strokeWidth={2} /></AreaChart></ResponsiveContainer></div></Panel><Panel><Heading icon={<TrendingUp size={16} />} title="Ingestion scans vs merges" copy="AI scans and human merge activity over the last 30 days." /><div className="h-64"><ResponsiveContainer><LineChart data={charts.merges_over_time}><CartesianGrid vertical={false} stroke="#e2e8f0" /><XAxis dataKey="date" fontSize={9} interval={5} /><YAxis fontSize={10} /><Tooltip /><Legend /><Line type="monotone" dataKey="scans" name="AI scans" stroke="#7c3aed" strokeWidth={2} /><Line type="monotone" dataKey="merges" name="Human merges" stroke="#d91d4e" strokeWidth={2} /></LineChart></ResponsiveContainer></div></Panel></div><Panel><Heading icon={<ShieldCheck size={16} />} title="Pillar leakage & error matrix" copy="Duplicate rates and quality scores by operational program." /><div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">{dimensions.map((dimension) => <div key={dimension.label} className="rounded-lg bg-slate-50 p-3"><div className="flex justify-between text-[10px] font-bold uppercase text-slate-500"><span>{dimension.label}</span><span>{dimension.value}%</span></div><div className="mt-2 h-1.5 rounded-full bg-slate-200"><div className="h-full rounded-full" style={{ width: `${dimension.value}%`, backgroundColor: dimension.color }} /></div></div>)}</div><div className="overflow-x-auto"><table className="w-full text-left text-xs"><thead className="border-b border-slate-100 text-[10px] uppercase text-slate-400"><tr><th className="pb-3">Program</th><th className="pb-3 text-center">Uniques</th><th className="pb-3 text-center">Duplicates</th><th className="pb-3 text-right">Influx rate</th></tr></thead><tbody className="divide-y divide-slate-100">{charts.duplicates_by_program.map((row) => <tr key={row.program}><td className="py-3 font-bold text-slate-700">{row.program}</td><td className="py-3 text-center font-mono">{row.uniques}</td><td className="py-3 text-center font-mono text-[#d91d4e]">{row.duplicates}</td><td className="py-3"><div className="flex items-center justify-end gap-2"><div className="h-2 w-24 rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${row.rate}%`, backgroundColor: row.color }} /></div><span className="w-12 text-right font-mono font-bold" style={{ color: row.color }}>{row.rate}%</span></div></td></tr>)}</tbody></table></div></Panel></div>;
+  if (!metrics || !charts) return <div className="rounded-xl border border-rose-200 bg-rose-50 p-5 text-sm font-semibold text-rose-700">No dashboard telemetry returned.</div>;
+
+  return (
+    <div className="space-y-7 animate-fadeInUp">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        {cards.map((card) => (
+          <article key={card.label} className="executive-card relative overflow-hidden p-4">
+            <span className="absolute right-0 top-0 h-full w-1" style={{ backgroundColor: card.color }} />
+            <div className="flex items-center justify-between">
+              <span className="eyebrow pr-2">{card.label}</span>
+              <card.icon size={16} style={{ color: card.color }} />
+            </div>
+            <strong className="mt-3 block text-2xl font-black text-slate-800">{card.value.toLocaleString()}</strong>
+            <span className="mt-1 inline-flex rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold" style={{ color: card.color }}>
+              {card.sub}
+            </span>
+          </article>
+        ))}
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="executive-card p-5 sm:p-6 lg:col-span-2">
+          <Heading icon={<BarChart3 size={16} />} title="Pillar data composition" copy="Unique master profiles versus duplicate ingestion by operational program." />
+          <div className="h-72">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={charts.duplicates_by_program}>
+                <CartesianGrid vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="program" fontSize={10} />
+                <YAxis fontSize={10} />
+                <Tooltip />
+                <Legend />
+                <Bar dataKey="uniques" name="Unique beneficiaries" fill="#00828a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="duplicates" name="Duplicate telemetry" fill="#d91d4e" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="executive-card p-5 sm:p-6">
+          <Heading icon={<Users size={16} />} title="Pillar enrollment share" copy="Master profile distribution across operational pillars." />
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={charts.beneficiaries_by_program}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={40}
+                  outerRadius={70}
+                  dataKey="value"
+                  nameKey="name"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  labelLine={false}
+                >
+                  {charts.beneficiaries_by_program.map((_, i) => (
+                    <Cell key={`cell-${i}`} fill={charts.beneficiaries_by_program[i].color} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value: number) => [value.toLocaleString(), "beneficiaries"]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="executive-card p-5 sm:p-6 lg:col-span-2">
+          <Heading icon={<AreaIcon size={16} />} title="Match confidence distribution" copy="Fuzzy-match confidence buckets for all beneficiary pair comparisons." />
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={charts.match_confidence}>
+                <defs>
+                  <linearGradient id="confidenceGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#00828a" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#00828a" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="range" fontSize={10} />
+                <YAxis fontSize={10} />
+                <Tooltip formatter={(value: number) => [value.toLocaleString(), "profiles"]} />
+                <Area type="monotone" dataKey="count" stroke="#00828a" fillOpacity={1} fill="url(#confidenceGradient)" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="executive-card p-5 sm:p-6">
+          <Heading icon={<TrendingUp size={16} />} title="Data quality trajectory" copy="30-day rolling average of ingestion quality scores." />
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trend?.data.map((v, i) => ({ day: i + 1, value: v })) || []}>
+                <CartesianGrid vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="day" fontSize={10} />
+                <YAxis fontSize={10} domain={[70, 100]} />
+                <Tooltip formatter={(value: number) => [`${value}%`, "quality"]} />
+                <Line type="monotone" dataKey="value" stroke="#00828a" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        <section className="executive-card p-5 sm:p-6">
+          <Heading icon={<ShieldCheck size={16} />} title="Quality dimensions" copy="Five canonical data quality dimensions with live scores." />
+          <div className="space-y-3">
+            {dimensions.map((dim: Dimension) => (
+              <div key={dim.label} className="space-y-1">
+                <div className="flex justify-between text-xs">
+                  <span className="font-medium text-slate-700">{dim.label}</span>
+                  <span className="font-bold text-slate-900">{dim.value}%</span>
+                </div>
+                <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{ width: `${dim.value}%`, backgroundColor: dim.color }}
+                  />
+                </div>
+                <p className="text-[10px] text-slate-500">{dim.issues} open issues</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+    </div>
+  );
 }
-function Heading({ icon, title, copy }: { icon: React.ReactNode; title: string; copy: string }) { return <div className="mb-4"><h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-800">{icon}{title}</h3><p className="mt-1 text-[11px] text-slate-400">{copy}</p></div>; }
-function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) { return <section className={`executive-card p-5 sm:p-6 ${className}`}>{children}</section>; }
-function money(value: number) { return new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", maximumFractionDigits: 0 }).format(value); }
-function FinanceCard({ label, value, tone = "text-slate-900" }: { label: string; value: string; tone?: string }) { return <article className="executive-card p-4"><span className="eyebrow">{label}</span><strong className={`mt-2 block text-xl font-black ${tone}`}>{value}</strong><p className="mt-1 text-[10px] text-slate-500">Live reconciliation view</p></article>; }
+
+function Heading({ icon, title, copy }: { icon: React.ReactNode; title: string; copy: string }) {
+  return (
+    <div className="mb-4">
+      <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-slate-800">
+        {icon}{title}
+      </h3>
+      <p className="mt-1 text-[11px] text-slate-400">{copy}</p>
+    </div>
+  );
+}
