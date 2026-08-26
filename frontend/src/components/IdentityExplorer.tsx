@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { useDebounce } from "use-debounce";
-import { AlertTriangle, EyeOff, HelpCircle, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { AlertTriangle, EyeOff, HelpCircle, RefreshCw, Search, ShieldCheck, User } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { useIdentities } from "../api/hooks";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import api from "../api/client";
+import { useIdentities, useToggleKdpaAnonymisation } from "../api/hooks";
 
 interface Identity {
   id: string;
@@ -17,7 +15,7 @@ interface Identity {
 }
 
 export default function IdentityExplorer() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [maskingActive, setMaskingActive] = useState(false);
@@ -28,13 +26,12 @@ export default function IdentityExplorer() {
     debouncedSearch || undefined
   );
 
-  const queryClient = useQueryClient();
+  const toggleMutation = useToggleKdpaAnonymisation();
 
   const toggleAnonymisation = async () => {
     try {
-      const response = await api.post("/api/v1/governance/anonymise");
-      setMaskingActive(response.data.masking_enabled);
-      queryClient.invalidateQueries({ queryKey: ["identities"] });
+      const result = await toggleMutation.mutateAsync();
+      setMaskingActive(result.masking_enabled);
     } catch (err) {
       console.error("Failed to toggle anonymisation:", err);
     }
@@ -43,6 +40,8 @@ export default function IdentityExplorer() {
   const handleRefresh = () => {
     refetch();
   };
+
+  const isAdminOrManager = user?.role === "admin" || user?.role === "manager";
 
   const badge = (status: string) => status === "Verified"
     ? <span className="badge text-emerald-300"><ShieldCheck size={13} /> Verified</span>
@@ -60,12 +59,13 @@ export default function IdentityExplorer() {
         <div className="flex gap-2">
           <button
             onClick={toggleAnonymisation}
+            disabled={toggleMutation.isPending || !isAdminOrManager}
             className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-bold transition ${
               maskingActive
                 ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                 : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-600"
-            }`}
-            title="Toggle KDPA PII masking"
+            } opacity-${!isAdminOrManager ? "50 cursor-not-allowed" : "100"}`}
+            title={!isAdminOrManager ? "Admin/Manager access required" : "Toggle KDPA PII masking"}
           >
             <EyeOff size={15} />{maskingActive ? "PII masked" : "Mask PII"}
           </button>
@@ -79,6 +79,13 @@ export default function IdentityExplorer() {
           </button>
         </div>
       </div>
+
+      {!isAdminOrManager && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+          <User size={15} />
+          <span>Admin/Manager access required to toggle PII masking. Current role: {user?.role || "unknown"}</span>
+        </div>
+      )}
 
       <div className="mb-5 grid gap-3 md:grid-cols-[1fr_240px]">
         <label className="relative block">

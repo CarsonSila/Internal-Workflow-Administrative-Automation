@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { Activity, AlertCircle, AreaChart as AreaChartIcon, BarChart3, CheckCircle2, Copy, Database, Layers, ShieldCheck, TrendingUp, Users } from "lucide-react";
+import { Activity, AlertCircle, AreaChart as AreaChartIcon, BarChart3, CheckCircle2, Copy, Database, Layers, RefreshCw, ShieldCheck, TrendingUp, Users } from "lucide-react";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useOverviewMetrics, useOverviewCharts, useProgramMetrics, useQualityDimensions, useQualityTrend, useFinancialReconciliation } from "../api/hooks";
 import { Heading, Panel, money, FinanceCard } from "./ui/DashboardUI";
@@ -8,8 +8,8 @@ interface Dimension { label: string; value: number; issues: number; color: strin
 interface Finance { total_disbursed: number; duplicate_leakage_prevented: number; high_risk_payments_flagged: number; reconciliation_rate: number; at_risk_records_count: number; }
 
 export default function DataQualityDashboard() {
-  const { data: metrics, isLoading: metricsLoading } = useOverviewMetrics();
-  const { data: charts, isLoading: chartsLoading } = useOverviewCharts();
+  const { data: metrics, isLoading: metricsLoading, refetch: refetchMetrics } = useOverviewMetrics();
+  const { data: charts, isLoading: chartsLoading, refetch: refetchCharts } = useOverviewCharts();
   const { data: programs } = useProgramMetrics();
   const { data: quality } = useQualityDimensions();
   const { data: trend } = useQualityTrend();
@@ -17,6 +17,11 @@ export default function DataQualityDashboard() {
 
   const loading = metricsLoading || chartsLoading || financeLoading;
   const dimensions = quality?.dimensions || [];
+
+  const handleRefresh = () => {
+    refetchMetrics();
+    refetchCharts();
+  };
 
   const cards = [
     { label: "Total raw records", value: metrics?.total_records ?? 0, sub: "Ingested across all pillars", icon: Database, color: "#00828a" },
@@ -32,6 +37,21 @@ export default function DataQualityDashboard() {
 
   return (
     <div className="space-y-7 animate-fadeInUp">
+      <div className="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-start">
+        <div>
+          <p className="eyebrow">Executive Dashboard Overview</p>
+          <h2 className="section-title">Data Quality Dashboard</h2>
+          <p className="section-copy">Near-real-time metrics, quality trends, and system alerts.</p>
+        </div>
+        <button
+          onClick={handleRefresh}
+          className="icon-button"
+          title="Refresh dashboard data"
+          disabled={loading}
+        >
+          <RefreshCw size={17} className={loading ? "animate-spin" : ""} />
+        </button>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
         {cards.map((card) => (
           <article key={card.label} className="executive-card relative overflow-hidden p-4">

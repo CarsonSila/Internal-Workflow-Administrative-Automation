@@ -114,6 +114,19 @@ export interface ResolveDuplicateRequest {
   user?: string;
 }
 
+export interface UserProfile {
+  username: string;
+  full_name: string;
+  role: "admin" | "manager";
+  program_access: string[];
+}
+
+export interface TokenResponse {
+  access_token: string;
+  token_type: string;
+  user: UserProfile;
+}
+
 export interface AnomalyItem {
   id: string;
   title: string;
@@ -139,6 +152,14 @@ export interface QualityDimensionsResponse {
 
 export interface TrendResponse {
   data: number[];
+}
+
+export interface FinancialReconciliationSummary {
+  total_disbursed: number;
+  duplicate_leakage_prevented: number;
+  high_risk_payments_flagged: number;
+  reconciliation_rate: number;
+  at_risk_records_count: number;
 }
 
 // Query Keys
@@ -312,5 +333,136 @@ export function useFinancialReconciliation() {
       return res.data;
     },
     staleTime: 60000,
+  });
+}
+
+export function useFinancialLeakageTrend() {
+  return useQuery({
+    queryKey: ['financial', 'leakage-trend'],
+    queryFn: async () => {
+      const res = await api.get<LeakageTrendItem[]>('/api/v1/financial/leakage-trend');
+      return res.data;
+    },
+    staleTime: 60000,
+  });
+}
+
+export function useHighRiskPayments() {
+  return useQuery({
+    queryKey: ['financial', 'high-risk-payments'],
+    queryFn: async () => {
+      const res = await api.get<HighRiskPaymentItem[]>('/api/v1/financial/high-risk-payments');
+      return res.data;
+    },
+    staleTime: 60000,
+  });
+}
+
+export function useReconciliationSettings() {
+  return useQuery({
+    queryKey: ['financial', 'reconciliation', 'settings'],
+    queryFn: async () => {
+      const res = await api.get<ReconciliationSettingsResponse>('/api/v1/financial/reconciliation/settings');
+      return res.data;
+    },
+    staleTime: 60000,
+  });
+}
+
+export function useUpdateReconciliationSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: ReconciliationSettingsRequest) => {
+      const res = await api.post('/api/v1/financial/reconciliation/settings', req);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['financial', 'reconciliation', 'settings'] });
+      queryClient.invalidateQueries({ queryKey: ['financial', 'reconciliation'] });
+      queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+}
+
+export interface LeakageTrendItem {
+  month: string;
+  amount: number;
+}
+
+export interface HighRiskPaymentItem {
+  id: string;
+  beneficiary_id: string;
+  name: string;
+  program: string;
+  code: string;
+  reason: string;
+  amount: number;
+  status: string;
+}
+
+export interface ReconciliationSettingsRequest {
+  mismatch_threshold: number;
+  holding_on_mismatch: boolean;
+}
+
+export interface ReconciliationSettingsResponse {
+  mismatch_threshold: number;
+  holding_on_mismatch: boolean;
+}
+
+export interface GovernanceToggleResponse {
+  masking_enabled: boolean;
+  status: string;
+}
+
+export function useToggleKdpaAnonymisation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const res = await api.post<GovernanceToggleResponse>('/api/v1/governance/anonymise');
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['identities'] });
+      queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
+  });
+}
+
+export function useAuditTrail() {
+  return useQuery({
+    queryKey: ['audit'],
+    queryFn: async () => {
+      const res = await api.get<Record<string, any[]>>('/api/v1/audit');
+      return res.data;
+    },
+    staleTime: 15000,
+  });
+}
+
+export interface NotificationRequest {
+  channel: 'sms' | 'whatsapp';
+  recipient: string;
+  message: string;
+  reference_id?: string;
+}
+
+export interface NotificationResponse {
+  status: string;
+  channel: string;
+  recipient: string;
+  reference_id?: string;
+}
+
+export function useDispatchNotification() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (req: NotificationRequest) => {
+      const res = await api.post<NotificationResponse>('/api/v1/notifications/dispatch', req);
+      return res.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['audit'] });
+    },
   });
 }

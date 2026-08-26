@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, RefreshCw, Scale, ShieldAlert, Sparkles, X } from "lucide-react";
+import { Check, RefreshCw, Scale, ShieldAlert, Sparkles, X, AlertTriangle } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { useCompareRecords, useResolveDuplicate } from "../api/hooks";
 
@@ -16,15 +16,21 @@ export default function DuplicateResolution({
   defaultRecordA,
   defaultRecordB,
 }: DuplicateResolutionProps) {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [recordAId, setRecordAId] = useState(initialRecordA ?? defaultRecordA ?? "REC-PLU-10001");
   const [recordBId, setRecordBId] = useState(initialRecordB ?? defaultRecordB ?? "REC-SCH-10002");
   const [message, setMessage] = useState("");
+
+  const isAdmin = user?.role === "admin";
 
   const { data, isLoading, error, refetch } = useCompareRecords(recordAId, recordBId);
   const resolveMutation = useResolveDuplicate();
 
   const handleResolve = async (action: "merge" | "reject") => {
+    if (!isAdmin) {
+      setMessage("Admin access required to merge or reject duplicates.");
+      return;
+    }
     setMessage("");
     try {
       await resolveMutation.mutateAsync({
@@ -36,7 +42,12 @@ export default function DuplicateResolution({
       setMessage("Successfully resolved duplicate.");
       refetch();
     } catch (err: any) {
-      setMessage(err?.response?.data?.message || err?.message || "Resolution failed.");
+      const detail = err?.response?.data?.detail || err?.response?.data?.message || err?.message;
+      if (err?.response?.status === 403) {
+        setMessage("Admin access required. Please log in as an administrator.");
+      } else {
+        setMessage(detail || "Resolution failed.");
+      }
     }
   };
 
@@ -49,6 +60,13 @@ export default function DuplicateResolution({
         </h2>
         <p className="section-copy">Compare identity signals, then record a merge or keep-separate decision.</p>
       </div>
+
+      {!isAdmin && (
+        <div className="mb-4 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+          <AlertTriangle size={17} />
+          <span>Admin access required for merge/reject actions. Current role: {user?.role || "unknown"}</span>
+        </div>
+      )}
 
       <div className="mb-5 grid gap-3 rounded-lg border border-slate-800 bg-slate-950/50 p-4 sm:grid-cols-2">
         <label className="label">Record ID A
@@ -83,15 +101,17 @@ export default function DuplicateResolution({
             <div className="flex gap-2">
               <button
                 className="action-secondary"
-                disabled={resolveMutation.isPending}
+                disabled={resolveMutation.isPending || !isAdmin}
                 onClick={() => handleResolve("reject")}
+                title={!isAdmin ? "Admin access required" : undefined}
               >
                 <X size={16} /> Keep separate
               </button>
               <button
                 className="action-primary"
-                disabled={resolveMutation.isPending}
+                disabled={resolveMutation.isPending || !isAdmin}
                 onClick={() => handleResolve("merge")}
+                title={!isAdmin ? "Admin access required" : undefined}
               >
                 <Check size={16} /> Merge identities
               </button>
