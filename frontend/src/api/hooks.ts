@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from './client';
+import { UserProfile } from '../context/AuthContext';
 
 // Types (matching backend schemas)
 export interface MetricResponse {
@@ -114,18 +115,13 @@ export interface ResolveDuplicateRequest {
   user?: string;
 }
 
-export interface UserProfile {
-  username: string;
-  full_name: string;
-  role: "admin" | "manager";
-  program_access: string[];
-}
-
 export interface TokenResponse {
   access_token: string;
   token_type: string;
   user: UserProfile;
 }
+
+export { UserProfile };
 
 export interface AnomalyItem {
   id: string;
