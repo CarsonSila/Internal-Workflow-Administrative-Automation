@@ -180,6 +180,21 @@ export const queryKeys = {
     dimensions: ['quality', 'dimensions'] as const,
     trend: ['quality', 'trend'] as const,
   },
+  financial: {
+    reconciliation: ['financial', 'reconciliation'] as const,
+    leakageTrend: ['financial', 'leakage-trend'] as const,
+    highRiskPayments: ['financial', 'high-risk-payments'] as const,
+    settings: ['financial', 'reconciliation', 'settings'] as const,
+  },
+  governance: {
+    anonymise: ['governance', 'anonymise'] as const,
+  },
+  audit: {
+    list: ['audit'] as const,
+  },
+  notifications: {
+    dispatch: ['notifications', 'dispatch'] as const,
+  },
 } as const;
 
 // Overview hooks
@@ -323,7 +338,7 @@ export function useQualityTrend() {
 
 export function useFinancialReconciliation() {
   return useQuery({
-    queryKey: ['financial', 'reconciliation'],
+    queryKey: queryKeys.financial.reconciliation,
     queryFn: async () => {
       const res = await api.get<FinancialReconciliationSummary>('/api/v1/financial/reconciliation');
       return res.data;
@@ -334,7 +349,7 @@ export function useFinancialReconciliation() {
 
 export function useFinancialLeakageTrend() {
   return useQuery({
-    queryKey: ['financial', 'leakage-trend'],
+    queryKey: queryKeys.financial.leakageTrend,
     queryFn: async () => {
       const res = await api.get<LeakageTrendItem[]>('/api/v1/financial/leakage-trend');
       return res.data;
@@ -345,7 +360,7 @@ export function useFinancialLeakageTrend() {
 
 export function useHighRiskPayments() {
   return useQuery({
-    queryKey: ['financial', 'high-risk-payments'],
+    queryKey: queryKeys.financial.highRiskPayments,
     queryFn: async () => {
       const res = await api.get<HighRiskPaymentItem[]>('/api/v1/financial/high-risk-payments');
       return res.data;
@@ -356,7 +371,7 @@ export function useHighRiskPayments() {
 
 export function useReconciliationSettings() {
   return useQuery({
-    queryKey: ['financial', 'reconciliation', 'settings'],
+    queryKey: queryKeys.financial.settings,
     queryFn: async () => {
       const res = await api.get<ReconciliationSettingsResponse>('/api/v1/financial/reconciliation/settings');
       return res.data;
@@ -373,9 +388,9 @@ export function useUpdateReconciliationSettings() {
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['financial', 'reconciliation', 'settings'] });
-      queryClient.invalidateQueries({ queryKey: ['financial', 'reconciliation'] });
-      queryClient.invalidateQueries({ queryKey: ['audit'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.financial.settings });
+      queryClient.invalidateQueries({ queryKey: queryKeys.financial.reconciliation });
+      queryClient.invalidateQueries({ queryKey: queryKeys.audit.list });
     },
   });
 }
@@ -419,15 +434,15 @@ export function useToggleKdpaAnonymisation() {
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['identities'] });
-      queryClient.invalidateQueries({ queryKey: ['audit'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.identities.list() });
+      queryClient.invalidateQueries({ queryKey: queryKeys.audit.list });
     },
   });
 }
 
 export function useAuditTrail() {
   return useQuery({
-    queryKey: ['audit'],
+    queryKey: queryKeys.audit.list,
     queryFn: async () => {
       const res = await api.get<Record<string, any[]>>('/api/v1/audit');
       return res.data;
@@ -458,7 +473,7 @@ export function useDispatchNotification() {
       return res.data;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['audit'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.audit.list });
     },
   });
 }
